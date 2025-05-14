@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Data structures
@@ -95,6 +96,7 @@ func getArticle(w http.ResponseWriter, r *http.Request) {
 }
 
 // Authentication (Basic Auth)
+
 func authenticateUser(username, password string) bool {
 	file, err := os.Open("users.json")
 	if err != nil {
@@ -107,8 +109,9 @@ func authenticateUser(username, password string) bool {
 	json.NewDecoder(file).Decode(&users)
 
 	for _, user := range users {
-		if user.Username == username && user.Password == password {
-			return true
+		err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+		if err == nil {
+			return true // Password matches
 		}
 	}
 	return false
@@ -198,6 +201,11 @@ func deleteArticle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Error(w, "Article not found", http.StatusNotFound)
+}
+
+func hashPassword(password string) (string, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hashedPassword), err
 }
 
 // Main function
