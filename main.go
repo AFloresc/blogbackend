@@ -244,6 +244,21 @@ func deleteArticle(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Article not found", http.StatusNotFound)
 }
 
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") // Permitir solicitudes desde cualquier origen
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Configurar rutas
 func main() {
 	router := mux.NewRouter()
@@ -258,6 +273,9 @@ func main() {
 	router.HandleFunc("/admin/edit/{id}", editArticle).Methods("PUT")
 	router.HandleFunc("/admin/delete/{id}", deleteArticle).Methods("DELETE")
 
+	// Aplicar el middleware CORS
+	handler := enableCORS(router)
+
 	fmt.Println("Server running on port 8080")
-	http.ListenAndServe(":8080", router)
+	http.ListenAndServe(":8080", handler)
 }

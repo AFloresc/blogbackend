@@ -1,32 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Blog</title>
+    <title>Mi Blog</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
 
-    <h1>Welcome to My Blog</h1>
+    <header>
+        <img src="assets/logo.png" alt="Logo del Blog" class="logo">
+        <h1>Bienvenido a Mi Blog</h1>
+        <nav>
+            <a href="index.html">Inicio</a>
+            <a href="admin.html">Admin</a>
+        </nav>
+    </header>
 
-    <div id="articles-list">
-        <!-- Articles will be dynamically loaded here -->
-    </div>
+    <main>
+        <section id="articles-list">
+            <!-- Aquí se cargarán los artículos dinámicamente -->
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Mi Blog | Todos los derechos reservados</p>
+    </footer>
 
     <script>
-        fetch('/articles')
-            .then(response => response.json())
+        // Obtener los artículos del backend
+        fetch('http://localhost:8080/articles') // Asegura que la URL del backend es correcta
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Error al obtener los artículos");
+                }
+                return response.json();
+            })
             .then(articles => {
                 const listDiv = document.getElementById("articles-list");
+                listDiv.innerHTML = articles.length > 0 ? "" : "<p>No hay artículos disponibles.</p>";
+
                 articles.forEach(article => {
                     let item = document.createElement("div");
-                    item.innerHTML = `<h2><a href="article.html?id=${article.id}">${article.title}</a></h2>`;
+                    item.innerHTML = `<h2><a href="article.html?id=${article.id}">${article.title}</a></h2><p>${article.date}</p>`;
                     listDiv.appendChild(item);
                 });
-            });
+            })
+            .catch(error => console.error("Error en la carga:", error));
+
     </script>
 
 </body>
