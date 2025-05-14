@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -119,11 +120,11 @@ func authenticateUser(username, password string) bool {
 
 // Protected Admin Routes
 func adminHandler(w http.ResponseWriter, r *http.Request) {
-	username, password, _ := r.BasicAuth()
-	if !authenticateUser(username, password) {
+	if !isAuthenticated(r) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
 	fmt.Fprint(w, "Welcome Admin!")
 }
 
@@ -208,6 +209,36 @@ func hashPassword(password string) (string, error) {
 	return string(hashedPassword), err
 }
 
+var store = sessions.NewCookieStore([]byte("super-secret-key"))
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	username, password, _ := r.BasicAuth()
+
+	if authenticateUser(username, password) {
+		session, _ := store.Get(r, "session-name")
+		session.Values["authenticated"] = true
+		session.Save(r, w)
+
+		json.NewEncoder(w).Encode(map[string]string{"message": "Login successful"})
+	} else {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+	}
+}
+
+func isAuthenticated(r *http.Request) bool {
+	session, _ := store.Get(r, "session-name")
+	auth, ok := session.Values["authenticated"].(bool)
+	return ok && auth
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "session-name")
+	session.Values["authenticated"] = false
+	session.Save(r, w)
+
+	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out"})
+}
+
 // Main function
 func main() {
 	router := mux.NewRouter()
@@ -218,6 +249,8 @@ func main() {
 	router.HandleFunc("/admin/add", addArticle).Methods("POST")
 	router.HandleFunc("/admin/edit/{id}", editArticle).Methods("PUT")
 	router.HandleFunc("/admin/delete/{id}", deleteArticle).Methods("DELETE")
+	router.HandleFunc("/login", loginHandler).Methods("POST")
+	router.HandleFunc("/logout", logoutHandler).Methods("POST")
 
 	fmt.Println("Server running on port 8080")
 	http.ListenAndServe(":8080", router)
