@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <h1>Admin Dashboard</h1>
+    <button onclick="window.location.href='add.html'">Add New Article</button>
+
+    <div id="admin-articles">
+        <!-- Articles will be listed here -->
+    </div>
+
+    <script>
+        fetch('/articles')
+            .then(response => response.json())
+            .then(articles => {
+                const adminList = document.getElementById("admin-articles");
+                articles.forEach(article => {
+                    let item = document.createElement("div");
+                    item.innerHTML = `
+                        <h2>${article.title}</h2>
+                        <button onclick="window.location.href='edit.html?id=${article.id}'">Edit</button>
+                        <button onclick="deleteArticle(${article.id})">Delete</button>
+                    `;
+                    adminList.appendChild(item);
+                });
+            });
+
+        function deleteArticle(id) {
+            fetch(`/admin/delete/${id}`, { method: "DELETE" })
+                .then(() => location.reload());
+        }
+    </script>
+
+</body>
+
+</html>

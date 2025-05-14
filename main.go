@@ -1,0 +1,194 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"strconv"
+
+	"github.com/gorilla/mux"
+)
+
+// Data structures
+type Article struct {
+	ID      int    `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Date    string `json:"date"`
+	Image   string `json:"image"`
+}
+
+type User struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// Read articles from JSON
+func loadData() ([]Article, error) {
+	file, err := os.Open("data.json")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var articles []Article
+	err = json.NewDecoder(file).Decode(&articles)
+	return articles, err
+}
+
+// Write articles to JSON
+func saveData(articles []Article) error {
+	file, err := os.Create("data.json")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return json.NewEncoder(file).Encode(articles)
+}
+
+// API Endpoints
+func getArticles(w http.ResponseWriter, r *http.Request) {
+	articles, err := loadData()
+	if err != nil {
+		http.Error(w, "Error loading articles", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(articles)
+}
+
+func getArticle(w http.ResponseWriter, r *http.Request) {
+	articles, _ := loadData()
+	params := mux.Vars(r)
+	id, _ := strconv.Atoi(params["id"])
+
+	for _, article := range articles {
+		if article.ID == id {
+			json.NewEncoder(w).Encode(article)
+			return
+		}
+	}
+	http.Error(w, "Article not found", http.StatusNotFound)
+}
+
+// Authentication (Basic Auth)
+func authenticateUser(username, password string) bool {
+	file, err := os.Open("users.json")
+	if err != nil {
+		fmt.Println("Error opening users file:", err)
+		return false
+	}
+	defer file.Close()
+
+	var users []User
+	json.NewDecoder(file).Decode(&users)
+
+	for _, user := range users {
+		if user.Username == username && user.Password == password {
+			return true
+		}
+	}
+	return false
+}
+
+// Protected Admin Routes
+func adminHandler(w http.ResponseWriter, r *http.Request) {
+	username, password, _ := r.BasicAuth()
+	if !authenticateUser(username, password) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	fmt.Fprint(w, "Welcome Admin!")
+}
+
+func editArticle(w http.ResponseWriter, r *http.Request) {
+	username, password, _ := r.BasicAuth()
+	if !authenticateUser(username, password) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	articles, _ := loadData()
+	params := mux.Vars(r)
+	id, _ := strconv.Atoi(params["id"])
+
+	var updatedArticle Article
+	err := json.NewDecoder(r.Body).Decode(&updatedArticle)
+	if err != nil {
+		http.Error(w, "Invalid data", http.StatusBadRequest)
+		return
+	}
+
+	for i, article := range articles {
+		if article.ID == id {
+			articles[i] = updatedArticle
+			articles[i].ID = id // Keep the original ID
+			saveData(articles)
+			json.NewEncoder(w).Encode(articles[i])
+			return
+		}
+	}
+
+	http.Error(w, "Article not found", http.StatusNotFound)
+}
+
+func addArticle(w http.ResponseWriter, r *http.Request) {
+	username, password, _ := r.BasicAuth()
+	if !authenticateUser(username, password) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var newArticle Article
+	err := json.NewDecoder(r.Body).Decode(&newArticle)
+	if err != nil {
+		http.Error(w, "Invalid data", http.StatusBadRequest)
+		return
+	}
+
+	articles, _ := loadData()
+	newArticle.ID = len(articles) + 1 // Assign a new ID
+	articles = append(articles, newArticle)
+
+	saveData(articles)
+	json.NewEncoder(w).Encode(newArticle)
+}
+
+func deleteArticle(w http.ResponseWriter, r *http.Request) {
+	username, password, _ := r.BasicAuth()
+	if !authenticateUser(username, password) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	articles, _ := loadData()
+	params := mux.Vars(r)
+	id, _ := strconv.Atoi(params["id"])
+
+	for i, article := range articles {
+		if article.ID == id {
+			articles = append(articles[:i], articles[i+1:]...)
+			saveData(articles)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+	}
+
+	http.Error(w, "Article not found", http.StatusNotFound)
+}
+
+// Main function
+func main() {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/articles", getArticles).Methods("GET")
+	router.HandleFunc("/article/{id}", getArticle).Methods("GET")
+	router.HandleFunc("/admin", adminHandler).Methods("GET")
+	router.HandleFunc("/admin/add", addArticle).Methods("POST")
+	router.HandleFunc("/admin/edit/{id}", editArticle).Methods("PUT")
+	router.HandleFunc("/admin/delete/{id}", deleteArticle).Methods("DELETE")
+
+	fmt.Println("Server running on port 8080")
+	http.ListenAndServe(":8080", router)
+}

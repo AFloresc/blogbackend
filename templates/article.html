@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+    <h1 id="article-title"></h1>
+    <p id="article-content"></p>
+    <p><strong>Published on:</strong> <span id="article-date"></span></p>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const articleId = params.get("id");
+
+        fetch(`/article/${articleId}`)
+            .then(response => response.json())
+            .then(article => {
+                document.getElementById("article-title").innerText = article.title;
+                document.getElementById("article-content").innerText = article.content;
+                document.getElementById("article-date").innerText = article.date;
+            });
+    </script>
+
+</body>
+
+</html>
