@@ -55,7 +55,29 @@ func getArticles(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error loading articles", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(articles)
+
+	// Get pagination parameters
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 5 // Default limit
+	}
+
+	start := (page - 1) * limit
+	end := start + limit
+	if start >= len(articles) {
+		json.NewEncoder(w).Encode([]Article{}) // Return empty array if page out of bounds
+		return
+	}
+
+	if end > len(articles) {
+		end = len(articles)
+	}
+
+	json.NewEncoder(w).Encode(articles[start:end])
 }
 
 func getArticle(w http.ResponseWriter, r *http.Request) {
